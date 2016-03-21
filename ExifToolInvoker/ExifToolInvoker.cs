@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.IO;
 
 namespace Ossisoft
 {
-	public class ExifToolInvoker
+    public class ExifToolInvoker
 	{
 		private string exifToolPath;
 
@@ -27,7 +28,8 @@ namespace Ossisoft
 					Arguments = arguments,
 					UseShellExecute = false,
 					RedirectStandardOutput = true,
-					CreateNoWindow = true
+                    RedirectStandardError = true,
+					CreateNoWindow = false
 				}
 			};
 
@@ -36,13 +38,27 @@ namespace Ossisoft
 			return proc;
 		}
 
-		public ExifToolMetadata GetMetadata(string filePath)
+        public ExifToolMetadata GetMetadata(string filePath)
 		{
 			Dictionary<string, string> dictionary = new Dictionary<string, string> ();
 
 			var proc = Invoke (string.Format ("-s {0}", filePath));
 
-			while (!proc.StandardOutput.EndOfStream) {
+            while (!proc.StandardError.EndOfStream)
+            {
+                string line = proc.StandardError.ReadLine();
+
+                if (line.ToLower().Contains("file not found"))
+                {
+                    throw new FileNotFoundException(line);
+                }
+                else
+                {
+                    throw new Exception(line);
+                }
+            }
+
+            while (!proc.StandardOutput.EndOfStream) {
 				string line = proc.StandardOutput.ReadLine();
 
 				string[] kvp = line.Split (new char[] { ':' }, 2);
@@ -57,7 +73,7 @@ namespace Ossisoft
 					}
 				}
 			}
-
+            
 			return new ExifToolMetadata(dictionary);
 		}
 	}
